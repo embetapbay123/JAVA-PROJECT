@@ -8,7 +8,7 @@ public class DatabaseConnection {
     // TODO: CẬP NHẬT CÁC THÔNG TIN NÀY CHO PHÙ HỢP VỚI MYSQL CỦA BẠN
     private static final String DB_URL = "jdbc:mysql://localhost:3306/cinema_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
     private static final String DB_USER = "root"; // Ví dụ: root
-    private static final String DB_PASSWORD = "root"; // Ví dụ: 123456
+    private static final String DB_PASSWORD = "abc123"; // Ví dụ: 123456
 
     private static Connection connection = null;
 
