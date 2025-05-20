@@ -1,73 +1,55 @@
 package com.cinemamanagement.model;
 
-import java.util.Date; // Sử dụng java.util.Date cho bookingTime (hoặc java.sql.Timestamp)
+import java.util.Date;
+import java.math.BigDecimal; // Sử dụng BigDecimal
+import java.math.RoundingMode;
 
 public class Ticket {
     private int id;
     private int showtimeId;
     private int userId;
     private int seatId;
-    private Date bookingTime; // Thời gian đặt vé (java.util.Date map với TIMESTAMP trong SQL)
+    private BigDecimal pricePaid; // Giá đã trả cho vé này
+    private Date bookingTime;
 
-    // Constructors
     public Ticket() {
+        this.pricePaid = BigDecimal.ZERO;
     }
 
-    public Ticket(int id, int showtimeId, int userId, int seatId, Date bookingTime) {
+    public Ticket(int id, int showtimeId, int userId, int seatId, BigDecimal pricePaid, Date bookingTime) {
         this.id = id;
         this.showtimeId = showtimeId;
         this.userId = userId;
         this.seatId = seatId;
+        this.pricePaid = (pricePaid == null) ? BigDecimal.ZERO : pricePaid.setScale(2, RoundingMode.HALF_UP);
         this.bookingTime = bookingTime;
     }
-    
-    public Ticket(int showtimeId, int userId, int seatId) {
+
+    // Constructor không có id và bookingTime (sẽ được set tự động)
+    public Ticket(int showtimeId, int userId, int seatId, BigDecimal pricePaid) {
         this.showtimeId = showtimeId;
         this.userId = userId;
         this.seatId = seatId;
-        // bookingTime có thể được set bởi CSDL (DEFAULT CURRENT_TIMESTAMP) hoặc trong DAO
+        this.pricePaid = (pricePaid == null) ? BigDecimal.ZERO : pricePaid.setScale(2, RoundingMode.HALF_UP);
     }
 
-    // Getters and Setters
-    public int getId() {
-        return id;
-    }
+    // Getters
+    public int getId() { return id; }
+    public int getShowtimeId() { return showtimeId; }
+    public int getUserId() { return userId; }
+    public int getSeatId() { return seatId; }
+    public BigDecimal getPricePaid() { return pricePaid; }
+    public Date getBookingTime() { return bookingTime; }
 
-    public void setId(int id) {
-        this.id = id;
+    // Setters
+    public void setId(int id) { this.id = id; }
+    public void setShowtimeId(int showtimeId) { this.showtimeId = showtimeId; }
+    public void setUserId(int userId) { this.userId = userId; }
+    public void setSeatId(int seatId) { this.seatId = seatId; }
+    public void setPricePaid(BigDecimal pricePaid) {
+        this.pricePaid = (pricePaid == null) ? BigDecimal.ZERO : pricePaid.setScale(2, RoundingMode.HALF_UP);
     }
-
-    public int getShowtimeId() {
-        return showtimeId;
-    }
-
-    public void setShowtimeId(int showtimeId) {
-        this.showtimeId = showtimeId;
-    }
-
-    public int getUserId() {
-        return userId;
-    }
-
-    public void setUserId(int userId) {
-        this.userId = userId;
-    }
-
-    public int getSeatId() {
-        return seatId;
-    }
-
-    public void setSeatId(int seatId) {
-        this.seatId = seatId;
-    }
-
-    public Date getBookingTime() {
-        return bookingTime;
-    }
-
-    public void setBookingTime(Date bookingTime) {
-        this.bookingTime = bookingTime;
-    }
+    public void setBookingTime(Date bookingTime) { this.bookingTime = bookingTime; }
 
     @Override
     public String toString() {
@@ -76,6 +58,7 @@ public class Ticket {
                ", showtimeId=" + showtimeId +
                ", userId=" + userId +
                ", seatId=" + seatId +
+               ", pricePaid=" + (pricePaid != null ? pricePaid.toPlainString() : "0.00") +
                ", bookingTime=" + (bookingTime != null ? bookingTime.toString() : "N/A") +
                '}';
     }

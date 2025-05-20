@@ -63,7 +63,7 @@ public class RegisterDialog extends JDialog {
         gbc.gridx = 1; gbc.gridy = 3; gbc.weightx = 1.0;
         roleComboBox = new JComboBox<>(Role.values()); // Lấy tất cả giá trị từ enum Role
         roleComboBox.setSelectedItem(Role.USER); // Mặc định là USER
-        // roleComboBox.setEnabled(false); // Nếu bạn không muốn người dùng tự chọn role khi đăng ký
+        roleComboBox.setEnabled(false); // Nếu bạn không muốn người dùng tự chọn role khi đăng ký
         formPanel.add(roleComboBox, gbc);
 
         // Panel cho các nút
@@ -139,7 +139,7 @@ public class RegisterDialog extends JDialog {
         User newUser = new User(username, password, role);
 
         // Gọi phương thức register từ UserDAO
-        if (userDAO.registerUser(newUser)) {
+        if (userDAO.registerUserSelf(newUser)) {
             JOptionPane.showMessageDialog(this, "Đăng ký thành công! Vui lòng đăng nhập.", "Đăng Ký Thành Công", JOptionPane.INFORMATION_MESSAGE);
             dispose(); // Đóng dialog sau khi đăng ký thành công
         } else {

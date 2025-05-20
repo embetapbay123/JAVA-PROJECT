@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS Showtime (
     movie_id INT NOT NULL,                     -- Khóa ngoại, liên kết đến bảng Movie
     room_id INT NOT NULL,                      -- Khóa ngoại, liên kết đến bảng Room
     show_time DATETIME NOT NULL,               -- Thời gian bắt đầu suất chiếu
-    -- (Có thể thêm giá vé cho suất chiếu này nếu giá khác nhau)
+    price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     CONSTRAINT fk_showtime_movie FOREIGN KEY (movie_id) REFERENCES Movie(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_showtime_room FOREIGN KEY (room_id) REFERENCES Room(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS Ticket (
     user_id INT NOT NULL,                      -- Khóa ngoại, liên kết đến bảng User (người đặt vé)
     seat_id INT NOT NULL,                      -- Khóa ngoại, liên kết đến bảng Seat (ghế được đặt)
     booking_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Thời gian đặt vé, mặc định là thời điểm hiện tại
-    -- (Có thể thêm giá vé đã thanh toán, trạng thái vé, v.v.)
+    price_paid DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     CONSTRAINT fk_ticket_showtime FOREIGN KEY (showtime_id) REFERENCES Showtime(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_ticket_user FOREIGN KEY (user_id) REFERENCES User(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_ticket_seat FOREIGN KEY (seat_id) REFERENCES Seat(id) ON DELETE CASCADE ON UPDATE CASCADE,
