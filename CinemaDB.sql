@@ -91,27 +91,6 @@ INSERT INTO Movie (title, genre, duration, description, release_date) VALUES
 ('Spider-Man: No Way Home', 'Action, Adventure', 148, 'With Spider-Man''s identity now revealed, Peter asks Doctor Strange for help.', '2021-12-17')
 ON DUPLICATE KEY UPDATE genre=VALUES(genre), duration=VALUES(duration); -- Cập nhật nếu phim đã tồn tại dựa trên title (cần thêm UNIQUE constraint cho title nếu muốn làm vậy)
 
--- Thêm một vài phòng chiếu mẫu
-INSERT INTO Room (name, seat_count) VALUES
-('Room 1', 50),
-('Room 2', 30),
-('VIP Room', 20)
-ON DUPLICATE KEY UPDATE seat_count=VALUES(seat_count);
-
--- Thêm ghế cho Phòng 1 (id=1, giả sử) - Bạn sẽ cần code để tạo ghế tự động khi thêm phòng
--- Ví dụ này chỉ tạo một vài ghế cho Room 1
--- INSERT INTO Seat (room_id, seat_number) VALUES (1, 'A1'), (1, 'A2'), (1, 'A3'), (1, 'A4'), (1, 'A5');
--- INSERT INTO Seat (room_id, seat_number) VALUES (1, 'B1'), (1, 'B2'), (1, 'B3'), (1, 'B4'), (1, 'B5');
--- (Việc insert ghế thủ công như này không hiệu quả. Nên có logic trong ứng dụng để tạo ghế khi tạo phòng)
-
--- Thêm một vài suất chiếu mẫu (thời gian nên ở tương lai để có thể đặt vé)
--- Giả sử Movie ID 1 là Avengers, Room ID 1 là Room 1
--- Lưu ý: Chỉnh sửa ngày giờ cho phù hợp với thời điểm bạn chạy script này để chúng là các suất chiếu trong tương lai
--- INSERT INTO Showtime (movie_id, room_id, show_time) VALUES
--- (1, 1, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 10:00:00')), -- Avengers, Room 1, 10 AM ngày mai
--- (1, 1, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 13:00:00')), -- Avengers, Room 1, 1 PM ngày mai
--- (2, 2, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 11:00:00')); -- Joker, Room 2, 11 AM ngày mai
-
--- (Không thêm vé mẫu vì vé được tạo khi người dùng đặt)
+-- Không thêm phòng mẫu nữa vì lỗi, tự thêm trong app ^^
 
 -- Kết thúc script
