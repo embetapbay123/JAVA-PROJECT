@@ -1,8 +1,9 @@
 package com.cinemamanagement.dao;
 
 import com.cinemamanagement.model.Showtime;
-import com.cinemamanagement.model.Movie; // Cần để lấy duration
+import com.cinemamanagement.model.Movie;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -11,43 +12,24 @@ import java.util.List;
 
 public class ShowtimeDAO {
 
-    /**
-     * Kiểm tra xem có suất chiếu nào khác trong cùng một phòng bị chồng chéo thời gian
-     * với suất chiếu được đề xuất hay không.
-     *
-     * @param roomId ID của phòng.
-     * @param proposedStartTime Thời gian bắt đầu của suất chiếu đề xuất.
-     * @param proposedEndTime Thời gian kết thúc của suất chiếu đề xuất.
-     * @param excludeShowtimeId ID của suất chiếu cần loại trừ khỏi kiểm tra (dùng khi cập nhật).
-     *                          Đặt là 0 hoặc giá trị không tồn tại (ví dụ: -1) nếu không cần loại trừ (khi thêm mới).
-     * @return true nếu có xung đột, false nếu không.
-     */
     public boolean hasTimeConflict(int roomId, Date proposedStartTime, Date proposedEndTime, int excludeShowtimeId) {
-        // SQL kiểm tra xung đột: (StartTimeA < EndTimeB) AND (EndTimeA > StartTimeB)
         String sql = "SELECT COUNT(s.id) " +
                      "FROM Showtime s " +
-                     "JOIN Movie m ON s.movie_id = m.id " + // Join với Movie để lấy duration
+                     "JOIN Movie m ON s.movie_id = m.id " +
                      "WHERE s.room_id = ? " +
-                     "AND s.id != ? " + // Loại trừ suất chiếu hiện tại nếu đang cập nhật
-                     "AND (? < DATE_ADD(s.show_time, INTERVAL m.duration MINUTE) " + // proposedStartTime < oldShowtimeEndTime
-                     "     AND ? > s.show_time)";                                  // proposedEndTime > oldShowtimeStartTime
-
+                     "AND s.id != ? " +
+                     "AND (? < DATE_ADD(s.show_time, INTERVAL m.duration MINUTE) " +
+                     "     AND ? > s.show_time)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
             pstmt.setInt(1, roomId);
             pstmt.setInt(2, excludeShowtimeId);
             pstmt.setTimestamp(3, new java.sql.Timestamp(proposedStartTime.getTime()));
             pstmt.setTimestamp(4, new java.sql.Timestamp(proposedEndTime.getTime()));
-
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     int conflictCount = rs.getInt(1);
-                    System.out.println("Time conflict check for room " + roomId +
-                                       ", start: " + proposedStartTime +
-                                       ", end: " + proposedEndTime +
-                                       ", excluding: " + excludeShowtimeId +
-                                       " -> Found conflicts: " + conflictCount); // Debug
+                    System.out.println("ShowtimeDAO.hasTimeConflict: Room " + roomId + ", Start " + proposedStartTime + ", End " + proposedEndTime + ", Exclude " + excludeShowtimeId + " -> Conflicts: " + conflictCount);
                     return conflictCount > 0;
                 }
             }
@@ -55,41 +37,34 @@ public class ShowtimeDAO {
             System.err.println("Lỗi khi kiểm tra xung đột thời gian suất chiếu: " + e.getMessage());
             e.printStackTrace();
         }
-        // Nếu có lỗi trong quá trình kiểm tra, coi như có xung đột để đảm bảo an toàn
-        System.err.println("Time conflict check resulted in error, assuming conflict."); // Debug
+        System.err.println("ShowtimeDAO.hasTimeConflict: Error occurred, assuming conflict for safety.");
         return true;
     }
 
-
     public boolean addShowtime(Showtime showtime) {
-        // 1. Lấy thông tin phim để biết thời lượng
-        MovieDAO movieDAO = new MovieDAO(); // Tạo instance mới hoặc inject nếu dùng DI
+        MovieDAO movieDAO = new MovieDAO();
         Movie movie = movieDAO.getMovieById(showtime.getMovieId());
         if (movie == null) {
-            System.err.println("Lỗi thêm suất chiếu: Không tìm thấy phim với ID " + showtime.getMovieId());
+            System.err.println("ShowtimeDAO.addShowtime: Không tìm thấy phim ID " + showtime.getMovieId());
             return false;
         }
-
-        // 2. Tính thời gian kết thúc dự kiến của suất chiếu mới
         Calendar cal = Calendar.getInstance();
         cal.setTime(showtime.getShowTime());
         cal.add(Calendar.MINUTE, movie.getDuration());
         Date proposedEndTime = cal.getTime();
 
-        // 3. Kiểm tra xung đột thời gian (excludeShowtimeId = 0 hoặc -1 vì đang thêm mới)
         if (hasTimeConflict(showtime.getRoomId(), showtime.getShowTime(), proposedEndTime, 0)) {
-            System.err.println("Lỗi thêm suất chiếu: Xung đột thời gian với suất chiếu khác trong cùng phòng.");
-            return false; // Trả về false để UI biết và thông báo
+            System.err.println("ShowtimeDAO.addShowtime: Xung đột thời gian cho phòng " + showtime.getRoomId());
+            return false;
         }
 
-        // 4. Nếu không có xung đột, tiến hành thêm suất chiếu
-        String sql = "INSERT INTO Showtime (movie_id, room_id, show_time) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO Showtime (movie_id, room_id, show_time, price) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-
             pstmt.setInt(1, showtime.getMovieId());
             pstmt.setInt(2, showtime.getRoomId());
             pstmt.setTimestamp(3, new java.sql.Timestamp(showtime.getShowTime().getTime()));
+            pstmt.setBigDecimal(4, showtime.getPrice());
 
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
@@ -98,6 +73,7 @@ public class ShowtimeDAO {
                         showtime.setId(generatedKeys.getInt(1));
                     }
                 }
+                System.out.println("ShowtimeDAO.addShowtime: Showtime added successfully with ID " + showtime.getId());
                 return true;
             }
         } catch (SQLException e) {
@@ -111,42 +87,51 @@ public class ShowtimeDAO {
         MovieDAO movieDAO = new MovieDAO();
         Movie movie = movieDAO.getMovieById(showtime.getMovieId());
         if (movie == null) {
-            System.err.println("Lỗi cập nhật suất chiếu: Không tìm thấy phim với ID " + showtime.getMovieId());
+            System.err.println("ShowtimeDAO.updateShowtime: Không tìm thấy phim ID " + showtime.getMovieId());
             return false;
         }
-
         Calendar cal = Calendar.getInstance();
         cal.setTime(showtime.getShowTime());
         cal.add(Calendar.MINUTE, movie.getDuration());
         Date proposedEndTime = cal.getTime();
 
-        // Khi cập nhật, exclude chính showtimeId đang được sửa
         if (hasTimeConflict(showtime.getRoomId(), showtime.getShowTime(), proposedEndTime, showtime.getId())) {
-            System.err.println("Lỗi cập nhật suất chiếu: Xung đột thời gian với suất chiếu khác trong cùng phòng.");
+            System.err.println("ShowtimeDAO.updateShowtime: Xung đột thời gian cho phòng " + showtime.getRoomId() + " khi cập nhật suất chiếu ID " + showtime.getId());
             return false;
         }
 
-        String sql = "UPDATE Showtime SET movie_id = ?, room_id = ?, show_time = ? WHERE id = ?";
+        String sql = "UPDATE Showtime SET movie_id = ?, room_id = ?, show_time = ?, price = ? WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
             pstmt.setInt(1, showtime.getMovieId());
             pstmt.setInt(2, showtime.getRoomId());
             pstmt.setTimestamp(3, new java.sql.Timestamp(showtime.getShowTime().getTime()));
-            pstmt.setInt(4, showtime.getId());
-
-            return pstmt.executeUpdate() > 0;
+            pstmt.setBigDecimal(4, showtime.getPrice());
+            pstmt.setInt(5, showtime.getId());
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                System.out.println("ShowtimeDAO.updateShowtime: Showtime updated successfully for ID " + showtime.getId());
+                return true;
+            }
         } catch (SQLException e) {
-            System.err.println("Lỗi SQL khi cập nhật suất chiếu: " + e.getMessage());
+            System.err.println("Lỗi SQL khi cập nhật suất chiếu ID " + showtime.getId() + ": " + e.getMessage());
             e.printStackTrace();
         }
         return false;
     }
 
-    // Các phương thức khác (getShowtimeById, getAllShowtimes, getShowtimesByMovie, etc.) giữ nguyên
-    // Hoặc thêm các System.out.println để debug nếu cần
+    private Showtime mapResultSetToShowtime(ResultSet rs) throws SQLException {
+        return new Showtime(
+                rs.getInt("id"),
+                rs.getInt("movie_id"),
+                rs.getInt("room_id"),
+                new Date(rs.getTimestamp("show_time").getTime()),
+                rs.getBigDecimal("price")
+        );
+    }
+
     public Showtime getShowtimeById(int showtimeId) {
-        String sql = "SELECT * FROM Showtime WHERE id = ?";
+        String sql = "SELECT id, movie_id, room_id, show_time, price FROM Showtime WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, showtimeId);
@@ -156,14 +141,14 @@ public class ShowtimeDAO {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Lỗi khi lấy suất chiếu bằng ID: " + e.getMessage());
+            System.err.println("Lỗi khi lấy suất chiếu bằng ID " + showtimeId + ": " + e.getMessage());
         }
         return null;
     }
 
     public List<Showtime> getAllShowtimes() {
         List<Showtime> showtimes = new ArrayList<>();
-        String sql = "SELECT * FROM Showtime ORDER BY show_time DESC";
+        String sql = "SELECT id, movie_id, room_id, show_time, price FROM Showtime ORDER BY show_time DESC";
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -178,7 +163,8 @@ public class ShowtimeDAO {
 
     public List<Showtime> getShowtimesByMovie(int movieId) {
         List<Showtime> showtimes = new ArrayList<>();
-        String sql = "SELECT * FROM Showtime WHERE movie_id = ? AND show_time >= CURDATE() ORDER BY show_time ASC";
+        // Chỉ lấy các suất chiếu từ hôm nay trở đi
+        String sql = "SELECT id, movie_id, room_id, show_time, price FROM Showtime WHERE movie_id = ? AND show_time >= CURDATE() ORDER BY show_time ASC";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, movieId);
@@ -188,65 +174,50 @@ public class ShowtimeDAO {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Lỗi khi lấy suất chiếu theo phim: " + e.getMessage());
+            System.err.println("Lỗi khi lấy suất chiếu theo phim ID " + movieId + ": " + e.getMessage());
         }
         return showtimes;
     }
     
-     public List<Showtime> getShowtimesByRoom(int roomId) {
-        List<Showtime> showtimes = new ArrayList<>();
-        String sql = "SELECT * FROM Showtime WHERE room_id = ? AND show_time >= CURDATE() ORDER BY show_time ASC";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    public boolean deleteShowtime(int showtimeId) {
+        String sqlCheckTickets = "SELECT COUNT(*) FROM Ticket WHERE showtime_id = ?";
+        String sqlDelete = "DELETE FROM Showtime WHERE id = ?";
+        Connection conn = null; // Quản lý transaction thủ công nếu cần kiểm tra trước khi xóa
+        try {
+            conn = DatabaseConnection.getConnection();
+            // Nếu bạn muốn đảm bảo không xóa suất chiếu đã có vé mà không muốn CSDL tự CASCADE,
+            // bạn có thể bỏ autoCommit, kiểm tra, rồi mới quyết định commit/rollback.
+            // conn.setAutoCommit(false); 
+            
+            // Kiểm tra xem có vé nào liên quan không (tùy chọn, vì CSDL đã có ON DELETE CASCADE)
+            // Nếu bạn muốn ngăn xóa nếu có vé, hãy xử lý ở đây
+            // try (PreparedStatement pstmtCheck = conn.prepareStatement(sqlCheckTickets)) {
+            //     pstmtCheck.setInt(1, showtimeId);
+            //     try (ResultSet rs = pstmtCheck.executeQuery()) {
+            //         if (rs.next() && rs.getInt(1) > 0) {
+            //             System.err.println("ShowtimeDAO.deleteShowtime: Suất chiếu ID " + showtimeId + " đã có vé đặt. Hiện tại CSDL sẽ xóa vé theo (CASCADE).");
+            //             // if (conn != null && !conn.getAutoCommit()) conn.rollback();
+            //             // return false; // Uncomment nếu muốn chặn xóa
+            //         }
+            //     }
+            // }
 
-            pstmt.setInt(1, roomId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    showtimes.add(mapResultSetToShowtime(rs));
+            try (PreparedStatement pstmtDelete = conn.prepareStatement(sqlDelete)) {
+                pstmtDelete.setInt(1, showtimeId);
+                int affectedRows = pstmtDelete.executeUpdate();
+                if (affectedRows > 0) {
+                    // if (conn != null && !conn.getAutoCommit()) conn.commit();
+                    System.out.println("ShowtimeDAO.deleteShowtime: Deleted showtime ID " + showtimeId);
+                    return true;
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Lỗi khi lấy suất chiếu theo phòng: " + e.getMessage());
+            System.err.println("Lỗi SQL khi xóa suất chiếu ID " + showtimeId + ": " + e.getMessage());
             e.printStackTrace();
-        }
-        return showtimes;
-    }
-    
-    public List<Showtime> getUpcomingShowtimes() {
-        List<Showtime> showtimes = new ArrayList<>();
-        String sql = "SELECT * FROM Showtime WHERE show_time >= NOW() AND show_time <= DATE_ADD(NOW(), INTERVAL 7 DAY) ORDER BY show_time ASC";
-        try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-
-            while (rs.next()) {
-                showtimes.add(mapResultSetToShowtime(rs));
-            }
-        } catch (SQLException e) {
-            System.err.println("Lỗi khi lấy các suất chiếu sắp tới: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return showtimes;
-    }
-
-    public boolean deleteShowtime(int showtimeId) {
-        String sql = "DELETE FROM Showtime WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, showtimeId);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("Lỗi khi xóa suất chiếu: " + e.getMessage());
+            // if (conn != null && !conn.getAutoCommit()) { try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); } }
+        } finally {
+            // if (conn != null && !conn.getAutoCommit()) { try { conn.setAutoCommit(true); } catch (SQLException ex) { ex.printStackTrace(); } }
         }
         return false;
-    }
-
-    private Showtime mapResultSetToShowtime(ResultSet rs) throws SQLException {
-        return new Showtime(
-                rs.getInt("id"),
-                rs.getInt("movie_id"),
-                rs.getInt("room_id"),
-                new Date(rs.getTimestamp("show_time").getTime())
-        );
     }
 }

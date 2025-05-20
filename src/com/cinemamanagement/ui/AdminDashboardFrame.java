@@ -20,7 +20,9 @@ public class AdminDashboardFrame extends JFrame {
     private MovieManagementPanel movieManagementPanel;
     private RoomManagementPanel roomManagementPanel;
     private ShowtimeManagementPanel showtimeManagementPanel;
-    // private UserManagementPanel userManagementPanel; // Tùy chọn nếu admin quản lý user
+    private UserManagementPanel userManagementPanel;
+    private TicketManagementPanel ticketManagementPanel;
+    private RevenuePanel revenuePanel;
 
     public AdminDashboardFrame() {
         if (LoginFrame.currentUser == null || LoginFrame.currentUser.getRole() != User.Role.ADMIN) {
@@ -69,13 +71,17 @@ public class AdminDashboardFrame extends JFrame {
         movieManagementPanel = new MovieManagementPanel();
         roomManagementPanel = new RoomManagementPanel();
         showtimeManagementPanel = new ShowtimeManagementPanel();
-        // userManagementPanel = new UserManagementPanel(); // Nếu có
+        userManagementPanel = new UserManagementPanel();
+        ticketManagementPanel = new TicketManagementPanel();
+        revenuePanel = new RevenuePanel();
 
         // Thêm các tab vào JTabbedPane
         tabbedPane.addTab("Quản lý Phim", createScrollablePanel(movieManagementPanel));
         tabbedPane.addTab("Quản lý Phòng Chiếu", createScrollablePanel(roomManagementPanel));
         tabbedPane.addTab("Quản lý Suất Chiếu", createScrollablePanel(showtimeManagementPanel));
-        
+        tabbedPane.addTab("Quản lý Người dùng", createScrollablePanel(userManagementPanel));
+        tabbedPane.addTab("Quản lý Đặt Vé", createScrollablePanel(ticketManagementPanel));
+        tabbedPane.addTab("Quản lý Doanh Thu", createScrollablePanel(revenuePanel));
         //set màu nền cho tabbedPane
         tabbedPane.setUI(new BasicTabbedPaneUI() {
             @Override
